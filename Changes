@@ -1,0 +1,6 @@
+Revision history for Perl extension Object::AutoAccessor.
+
+0.01  Sat Aug 20 00:50:00 2005
+	- original version; created by h2xs 1.21 with options
+		-AX -n Object::AutoAccessor
+
