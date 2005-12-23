@@ -16,7 +16,7 @@ require Exporter;
 	push @{$EXPORT_TAGS{all}}, grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}} for keys %EXPORT_TAGS;
 }
 
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 %default_options = (
 	params			=> undef,
@@ -33,18 +33,17 @@ sub new {
 	}
 	
 	my %args = @_;
-	my %options;
-	for my $key (keys %default_options) {
-		if (defined $args{$key}) {
-			$options{$key} = $args{$key};
-		}
-		else {
-			$options{$key} = $default_options{$key};
-		}
-	}
+	my %options = ();
+	$options{$_} = $default_options{$_} for keys %default_options;
+	$options{$_} = $args{$_}            for keys %args;
+	
 	my $self = bless {%options}, $class;
+	$self->_initialize();
 	$self;
 }
+
+# abstract
+sub _initialize { shift }
 
 sub renew {
 	my $obj = CORE::shift;
