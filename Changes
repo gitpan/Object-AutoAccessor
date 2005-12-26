@@ -1,5 +1,11 @@
 Revision history for Perl extension Object::AutoAccessor.
 
+0.03  Tue Dec 27 02:12:23
+	- bug fixed : AUTOLOAD could not return a child instance when using
+	  arrow operator as method call for name
+	- param() returns a set value when calling as setter method with
+	  only one pair of key and value
+
 0.02  Fri Dec 23 17:20:00 2005
 	- allowed any arguments to new() and renew() methods
 	- added abstract method _initialize()

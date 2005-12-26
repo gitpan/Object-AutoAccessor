@@ -1,6 +1,5 @@
 use strict;
 use Test::More qw(no_plan);
-use lib qw(/_projects/Object-AutoAccessor/lib);
 use Object::AutoAccessor;
 
 #-------------------------------------------------------------------------------
@@ -18,7 +17,7 @@ can_ok($obj, qw(param as_hashref));
 #-------------------------------------------------------------------------------
 # scalar setter/getter / length
 
-$obj->scalartest('test1');
+is($obj->scalartest('test1'), 'test1');
 
 is($obj->scalartest(), 'test1');
 is($obj->get_scalartest(), 'test1');
@@ -33,7 +32,7 @@ is($obj->length('scalartest'), 5);
 #-------------------------------------------------------------------------------
 # array setter/getter
 
-$obj->arraytest([qw(test3 test4 test5)]);
+is_deeply($obj->arraytest([qw(test3 test4 test5)]), [qw(test3 test4 test5)]);
 
 is_deeply($obj->arraytest, [qw(test3 test4 test5)]);
 is_deeply($obj->get_arraytest, [qw(test3 test4 test5)]);
@@ -46,7 +45,7 @@ is_deeply($obj->get_arraytest, [qw(test6 test7 test8)]);
 #-------------------------------------------------------------------------------
 # hash setter/getter / keys / values
 
-$obj->hashtest({ testkey1 => 'test9', testkey2 => 'test10' });
+is_deeply($obj->hashtest({ testkey1 => 'test9', testkey2 => 'test10' }), { testkey1 => 'test9', testkey2 => 'test10' });
 
 is_deeply($obj->hashtest, { testkey1 => 'test9', testkey2 => 'test10' });
 is_deeply($obj->get_hashtest, { testkey1 => 'test9', testkey2 => 'test10' });
@@ -85,7 +84,7 @@ $obj->globtest(\*STDOUT);
 #-------------------------------------------------------------------------------
 # code setter/getter
 
-$obj->codetest(sub { "CODETEST" });
+is($obj->codetest(sub { "CODETEST" })->(), "CODETEST");
 
 is($obj->codetest->(), "CODETEST");
 

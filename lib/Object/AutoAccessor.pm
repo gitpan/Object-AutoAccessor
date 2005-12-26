@@ -16,7 +16,7 @@ require Exporter;
 	push @{$EXPORT_TAGS{all}}, grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}} for keys %EXPORT_TAGS;
 }
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 %default_options = (
 	params			=> undef,
@@ -200,7 +200,7 @@ sub each {
 
 sub bindstyle {
 	my $self = shift;
-	$self->{bindstyle} = shift if (@_ > 0);
+	$self->{bindstyle} = shift if @_;
 	$self->{bindstyle};
 }
 
@@ -210,7 +210,7 @@ sub bind {
 	
 	croak CORE::ref($self) . "->bind('$label', ...) is not a scalar variable" if $self->ref($label);
 	
-	if (@_ >= 1) {
+	if (@_) {
 		my @binds = @_;
 		my $binds_num = scalar @binds;
 		my $value = $self->param($label);
@@ -264,7 +264,7 @@ sub sprintf {
 	
 	croak CORE::ref($self) . "->sprintf('$label', ...) is not a scalar variable" if $self->ref($label);
 	
-	if (@_ >= 1) {
+	if (@_) {
 		return CORE::sprintf($self->param($label), @_);
 	}
 	else {
@@ -340,7 +340,7 @@ sub length {
 sub param {
 	my $self = CORE::shift;
 	
-	if (@_ == 0) {
+	unless (@_) {
 		return
 			grep {
 				!(
@@ -353,7 +353,7 @@ sub param {
 	
 	my $first = CORE::shift;
 	
-	if (@_ > 0) {
+	if (@_) {
 		croak "Odd number of argumentes for " . CORE::ref($self) . "->param()" unless ((@_ % 2) == 1);
 		
 		my %hash = ($first,@_);
@@ -375,6 +375,9 @@ sub param {
 			}
 		}
 		
+		if (@_ == 1) {
+			return $self->{params}->{$first};
+		}
 	}
 	else {
 		if (CORE::ref($self->{params}->{$first}) and UNIVERSAL::isa($self->{params}->{$first}, __PACKAGE__)) {
@@ -420,16 +423,27 @@ sub AUTOLOAD {
 				return $self->param($name => @_);
 			}
 			else {
-				carp "Too many arguments for " . CORE::ref($self) . "->get_$name\()" if @_ > 0;
+				carp "Too many arguments for " . CORE::ref($self) . "->get_$name\()" if @_;
 				return $self->param($name);
 			}
 		}
 		else {
-			return $self->param($method => @_);
+			if ($self->is_child($method)) {
+				if (@_) {
+					undef $self->{params}->{$method};
+					return $self->param($method => @_);
+				}
+				else {
+					return $self->{params}->{$method};
+				}
+			}
+			else {
+				return $self->param($method => @_);
+			}
 		}
 	}
 	else {
-		croak "ERROR: " . CORE::ref($self) . "->$method\() : this method is not implimented";
+		croak(CORE::ref($self) . "->$method\() : this method is not implimented");
 	}
 	
 	return;
