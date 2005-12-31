@@ -4,19 +4,9 @@ require 5.004;
 use strict;
 use Carp;		# require 5.004
 
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $AUTOLOAD %default_options);
+use vars qw($VERSION $AUTOLOAD %default_options);
 
-require Exporter;
-@ISA			= qw(Exporter);
-@EXPORT			= qw(param as_hashref);
-%EXPORT_TAGS	= ();
-@EXPORT_OK		= ( map { @{$EXPORT_TAGS{$_}} } keys %EXPORT_TAGS );
-{
-	my %seen;
-	push @{$EXPORT_TAGS{all}}, grep {!$seen{$_}++} @{$EXPORT_TAGS{$_}} for keys %EXPORT_TAGS;
-}
-
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 %default_options = (
 	params			=> undef,
@@ -43,7 +33,58 @@ sub new {
 }
 
 # abstract
-sub _initialize { shift }
+sub _initialize { CORE::shift }
+
+sub new_child {
+	my $self = CORE::shift;
+	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->new_child()";
+	
+	my $child = $self->renew(@_);
+	
+	$self->param($label => $child);
+	$child;
+}
+
+sub child {
+	my $self = CORE::shift;
+	
+	unless (@_) {
+		return grep { $self->is_child($_) } CORE::keys(%{ $self->{params} });
+	}
+	
+	my $first = CORE::shift;
+	
+	if (@_) {
+		my @children = ();
+		for my $label ($first,@_) {
+			if ($self->is_child($label)) {
+				CORE::push(@children, $self->{params}->{$label});
+			}
+			else {
+				CORE::push(@children, undef);
+			}
+		}
+		return wantarray ? @children : [@children];
+	}
+	else {
+		if ($self->is_child($first)) {
+			return $self->{params}->{$first};
+		}
+		else {
+			return undef;
+		}
+	}
+}
+
+sub children { CORE::shift->child(@_) }
+
+sub has_child { scalar CORE::shift->child() }
+
+sub autoload {
+	my $self = shift;
+	$self->{autoload} = shift if @_;
+	$self->{autoload};
+}
 
 sub renew {
 	my $obj = CORE::shift;
@@ -341,14 +382,7 @@ sub param {
 	my $self = CORE::shift;
 	
 	unless (@_) {
-		return
-			grep {
-				!(
-					CORE::ref($self->{params}->{$_})
-					and UNIVERSAL::isa($self->{params}->{$_}, __PACKAGE__)
-				)
-			}
-			CORE::keys(%{ $self->{params} });
+		return grep { !$self->is_child($_) } CORE::keys(%{ $self->{params} });
 	}
 	
 	my $first = CORE::shift;
@@ -380,7 +414,7 @@ sub param {
 		}
 	}
 	else {
-		if (CORE::ref($self->{params}->{$first}) and UNIVERSAL::isa($self->{params}->{$first}, __PACKAGE__)) {
+		if ($self->is_child($first)) {
 			return undef;
 		}
 		
@@ -547,6 +581,22 @@ Defaults to 'normal' or undef.
 
 Create a new Object::AutoAccessor object to remaining current options.
 
+=item new_child ( NAME, [ OPTIONS ] )
+
+Create a new Object::AutoAccessor object as child instance by renew() .
+
+=item child ( NAME, [ NAME, ... ] )
+
+An accessor method for child instance of Object::AutoAccessor object.
+
+=item children ( NAME, [ NAME, ... ] )
+
+an alias for child() .
+
+=item has_child ( NAME )
+
+If object has child instance then it return TRUE.
+
 =item KEY ( [ VALUE ] )
 
 This method provides an accessor that methodname is same as keyname
@@ -580,6 +630,21 @@ This method is compatible with param() method of HTML::Template module.
   # get list keys of parameters
   @keys = $obj->param();
 
+=item autoload ( BOOLEAN )
+
+This is the method to switch behavior of the AUTOLOADed-accessor-method.
+If set to 0, the object cannot use the AUTOLOADed-accessor-method such as
+foo() , set_foo() and get_foo() but param() .
+
+  $obj->new_child('foo')->param(bar => 'baz');
+  
+  $obj->autoload(1);
+  $baz = $obj->foo->bar; # OK
+  
+  $obj->autoload(0);
+  $baz = $obj->child('foo')->param('bar'); # OK
+  $baz = $obj->foo->bar;                   # NG
+
 =item bind ( KEY, BIND )
 
 This method provides a simple replacing mechanism that changes I<placeholder>
@@ -609,7 +674,7 @@ As shown in name. :)
 
 =head1 AUTHOR
 
-Copyright 2005 Michiya Honda, E<lt>pia@cpan.orgE<gt> All rights reserved.
+Copyright 2005-2006 Michiya Honda, E<lt>pia@cpan.orgE<gt> All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -287,6 +287,18 @@ eval { $obj->test('!!!'); };
 
 ok(!$obj->defined('test'));
 
+$obj->autoload(1);
+
+eval { $obj->test('!!!'); };
+
+ok($obj->defined('test'));
+
+$obj->autoload(0);
+
+eval { $obj->test2('!!!'); };
+
+ok(!$obj->defined('test2'));
+
 #-------------------------------------------------------------------------------
 # renew with 'noautoload'
 
@@ -295,5 +307,17 @@ $obj = Object::AutoAccessor->renew(autoload => 0);
 eval { $obj->retest('???'); };
 
 ok(!$obj->defined('retest'));
+
+$obj->autoload(1);
+
+eval { $obj->retest('???'); };
+
+ok($obj->defined('retest'));
+
+$obj->autoload(0);
+
+eval { $obj->retest2('???'); };
+
+ok(!$obj->defined('retest2'));
 
 #-------------------------------------------------------------------------------

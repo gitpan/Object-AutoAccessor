@@ -77,6 +77,20 @@ METHODS
         Create a new Object::AutoAccessor object to remaining current
         options.
 
+    new_child ( NAME, [ OPTIONS ] )
+        Create a new Object::AutoAccessor object as child instance by
+        renew() .
+
+    child ( NAME, [ NAME, ... ] )
+        An accessor method for child instance of Object::AutoAccessor
+        object.
+
+    children ( NAME, [ NAME, ... ] )
+        an alias for child() .
+
+    has_child ( NAME )
+        If object has child instance then it return TRUE.
+
     KEY ( [ VALUE ] )
         This method provides an accessor that methodname is same as keyname
         by using AUTOLOAD mechanism.
@@ -109,6 +123,21 @@ METHODS
           # get list keys of parameters
           @keys = $obj->param();
 
+    autoload ( BOOLEAN )
+        This is the method to switch behavior of the
+        AUTOLOADed-accessor-method. If set to 0, the object cannot use the
+        AUTOLOADed-accessor-method such as foo() , set_foo() and get_foo()
+        but param() .
+
+          $obj->new_child('foo')->param(bar => 'baz');
+  
+          $obj->autoload(1);
+          $baz = $obj->foo->bar; # OK
+  
+          $obj->autoload(0);
+          $baz = $obj->child('foo')->param('bar'); # OK
+          $baz = $obj->foo->bar;                   # NG
+
     bind ( KEY, BIND )
         This method provides a simple replacing mechanism that changes
         *placeholder* to bindings just looks like execute() method of DBI.
@@ -132,7 +161,7 @@ METHODS
         As shown in name. :)
 
 AUTHOR
-    Copyright 2005 Michiya Honda, <pia@cpan.org> All rights reserved.
+    Copyright 2005-2006 Michiya Honda, <pia@cpan.org> All rights reserved.
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
