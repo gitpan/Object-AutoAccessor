@@ -1,5 +1,10 @@
 Revision history for Perl extension Object::AutoAccessor.
 
+0.05  Sun Feb 12 03:26:58 2006 JST
+	- rename new_child(), child(), has_child() and is_child()
+	      to new_node(),  node(),  has_node()  and is_node()
+	- a lot of ugly methods were deleted.
+
 0.04  Sun Jan  1 07:44:11 2006 JST
 	- added new_child(), child(), children(), has_child() and autoload()
 	  methods

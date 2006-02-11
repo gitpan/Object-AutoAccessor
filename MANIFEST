@@ -7,6 +7,5 @@ t/00_compile.t
 t/01_base.t
 t/02_inherit.t
 t/03_html_template.t
-t/04_child.t
 t/lib/Foo.pm
 META.yml                                 Module meta-data (added by MakeMaker)

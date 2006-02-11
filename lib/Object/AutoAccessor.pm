@@ -4,70 +4,77 @@ require 5.004;
 use strict;
 use Carp;		# require 5.004
 
-use vars qw($VERSION $AUTOLOAD %default_options);
+use vars qw($VERSION $AUTOLOAD);
 
-$VERSION = '0.04';
-
-%default_options = (
-	params			=> undef,
-	autoload		=> 1,			# default: 1(use AUTOLOAD) or 0(or '' or undef)
-	bindstyle		=> 'normal',	# default: 'normal'(undef), or 'sql'
-);
+$VERSION = '0.05';
 
 sub new {
-	my $obj = CORE::shift;
-	my $class = CORE::ref($obj) || $obj || __PACKAGE__;
+	my $obj = shift;
+	my $class = ref($obj) || $obj;
 	
 	unless (@_ % 2 == 0) {
 		croak "Odd number of argumentes for $class->new()";
 	}
 	
 	my %args = @_;
-	my %options = ();
-	$options{$_} = $default_options{$_} for keys %default_options;
-	$options{$_} = $args{$_}            for keys %args;
-	
-	my $self = bless {%options}, $class;
-	$self->_initialize();
-	$self;
+	my $options = { autoload => 1 };
+	$options->{$_} = $args{$_} for keys %args;
+	bless $options, $class;
 }
 
-# abstract
-sub _initialize { CORE::shift }
+sub renew {
+	my $obj = shift;
+	my $class = ref($obj) || $obj;
+	
+	unless (@_ % 2 == 0) {
+		croak "Odd number of argumentes for $class->renew()";
+	}
+	
+	my %args = @_;
+	if (ref($obj) and UNIVERSAL::isa($obj, __PACKAGE__)) {
+		%args = map { $_ => $obj->{$_} } grep !/^params$/, keys %$obj;
+	}
+	$class->new(%args);
+}
 
-sub new_child {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->new_child()";
+sub renew_node { shift->renew(@_) }
+
+sub new_node {
+	my $self = shift;
 	
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->new_node()";
+	}
+	
+	my $label = shift;
 	my $child = $self->renew(@_);
-	
 	$self->param($label => $child);
 	$child;
 }
 
-sub child {
-	my $self = CORE::shift;
+sub node {
+	my $self = shift;
 	
 	unless (@_) {
-		return grep { $self->is_child($_) } CORE::keys(%{ $self->{params} });
+		return grep { $self->is_node($_) } keys(%{ $self->{params} });
 	}
 	
-	my $first = CORE::shift;
+	my $first = shift;
 	
 	if (@_) {
 		my @children = ();
 		for my $label ($first,@_) {
-			if ($self->is_child($label)) {
-				CORE::push(@children, $self->{params}->{$label});
+			if ($self->is_node($label)) {
+				push(@children, $self->{params}->{$label});
 			}
 			else {
-				CORE::push(@children, undef);
+				push(@children, undef);
 			}
 		}
 		return wantarray ? @children : [@children];
 	}
 	else {
-		if ($self->is_child($first)) {
+		if ($self->is_node($first)) {
 			return $self->{params}->{$first};
 		}
 		else {
@@ -76,324 +83,35 @@ sub child {
 	}
 }
 
-sub children { CORE::shift->child(@_) }
+sub has_node { scalar shift->node() }
 
-sub has_child { scalar CORE::shift->child() }
-
-sub autoload {
+sub is_node {
 	my $self = shift;
-	$self->{autoload} = shift if @_;
-	$self->{autoload};
-}
-
-sub renew {
-	my $obj = CORE::shift;
-	my $class = CORE::ref($obj) || $obj || __PACKAGE__;
 	
-	unless (@_ % 2 == 0) {
-		croak "Odd number of argumentes for $class->renew()";
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->is_node()";
 	}
 	
-	my %options = @_;
-	if (CORE::ref($obj) and UNIVERSAL::isa($obj, __PACKAGE__)) {
-		%options = map { $_ => $obj->{$_} } grep !/^params$/, keys %$obj;
-	}
-	
-	my $self = $class->new(%options);
-	$self;
-}
-
-sub is_hashref {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_hashref()";
-	
-	return CORE::ref($self->{params}->{$label}) eq 'HASH';
-}
-
-sub is_arrayref {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_arrayref()";
-	
-	return CORE::ref($self->{params}->{$label}) eq 'ARRAY';
-}
-
-sub is_coderef {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_coderef()";
-	
-	return CORE::ref($self->{params}->{$label}) eq 'CODE';
-}
-
-sub is_globref {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_globref()";
-	
-	return CORE::ref($self->{params}->{$label}) eq 'GLOB';
-}
-
-sub is_scalar {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_globref()";
-	
-	return !CORE::ref($self->{params}->{$label});
-}
-
-sub is_child {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->is_child()";
-	
-	return (CORE::ref($self->{params}->{$label}) and UNIVERSAL::isa($self->{params}->{$label}, __PACKAGE__));
-}
-
-sub ref {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->ref()";
-	
-	return CORE::ref($self->{params}->{$label});
-}
-
-sub chomp {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->chomp()";
-	
-	if ($self->is_arrayref($label)) {
-		return CORE::chomp(@{ $self->{params}->{$label} });
-	}
-	elsif ($self->is_scalar($label)) {
-		return CORE::chomp($self->{params}->{$label});
-	}
-	else {
-		;
-	}
-}
-
-sub chop {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->chop()";
-	
-	if ($self->is_arrayref($label)) {
-		return CORE::chop(@{ $self->{params}->{$label} });
-	}
-	elsif ($self->is_scalar($label)) {
-		return CORE::chop($self->{params}->{$label});
-	}
-	else {
-		;
-	}
-}
-
-sub lc {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->lc()";
-	
-	return CORE::lc($self->{params}->{$label});
-}
-
-sub lcfirst {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->lcfirst()";
-	
-	return CORE::lcfirst($self->{params}->{$label});
-}
-
-sub uc {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->uc()";
-	
-	return CORE::uc($self->{params}->{$label});
-}
-
-sub ucfirst {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->ucfirst()";
-	
-	return CORE::ucfirst($self->{params}->{$label});
-}
-
-sub join {
-	my $self = CORE::shift;
-	my $joinstr = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->join()";
-	
-	return CORE::join($joinstr, @{ $self->{params}->{$label} });
-}
-
-sub keys {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->keys()";
-	
-	return CORE::keys %{ $self->{params}->{$label} };
-}
-
-sub values {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->values()";
-	
-	return CORE::values %{ $self->{params}->{$label} };
-}
-
-sub each {
-	my $self = CORE::shift;
-	my $label = CORE::shift or croak "Not enough arguments for " . CORE::ref($self) . "->each()";
-	
-	return CORE::each %{ $self->{params}->{$label} };
-}
-
-sub bindstyle {
-	my $self = shift;
-	$self->{bindstyle} = shift if @_;
-	$self->{bindstyle};
-}
-
-sub bind {
-	my $self = CORE::shift;
-	my $label = CORE::shift;
-	
-	croak CORE::ref($self) . "->bind('$label', ...) is not a scalar variable" if $self->ref($label);
-	
-	if (@_) {
-		my @binds = @_;
-		my $binds_num = scalar @binds;
-		my $value = $self->param($label);
-		
-		# placeholder match
-		my @q_num = ($value =~ /(?<!\\)(\?)/g);
-		my $q_num = scalar @q_num;
-		croak CORE::ref($self) . "->bind('$label', ...) placeholder missmatch ($q_num placeholders, $binds_num binds)" unless ($q_num == $binds_num);
-		
-		# closure
-		my $_shift = sub {
-			my $q = shift;
-			if ($q eq '\?') {
-				return '?';
-			}
-			elsif ($q eq '?') {
-				if ($self->{bindstyle} =~ /^sql$/i) {
-					my $val = CORE::shift @binds;
-					if ($val =~ /^[+-]?\d+(?:\.\d+)?$/) {
-						return $val;
-					}
-					else {
-						$val =~ s/'/''/g;
-						return "'$val'";
-					}
-				}
-				else {
-					return CORE::shift @binds;
-				}
-			}
-			else {
-				# never comes here
-				return $q;
-			}
-		};
-		
-		{
-			local($^W) = 0;
-			$value =~ s/(\\?\?)/$_shift->($1)/eg;
-		}
-		return $value;
-	}
-	else {
-		return $self->param($label);
-	}
-}
-
-sub sprintf {
-	my $self = CORE::shift;
-	my $label = CORE::shift;
-	
-	croak CORE::ref($self) . "->sprintf('$label', ...) is not a scalar variable" if $self->ref($label);
-	
-	if (@_) {
-		return CORE::sprintf($self->param($label), @_);
-	}
-	else {
-		return $self->param($label);
-	}
-}
-
-sub defined {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->defined()";
-	
-	return CORE::defined($self->{params}->{$param});
-}
-
-sub exists {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->exists()";
-	
-	return CORE::exists($self->{params}->{$param});
-}
-
-sub shift {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->shift()";
-	
-	return CORE::shift(@{ $self->{params}->{$param} });
-}
-
-sub unshift {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->unshift()";
-	my $value = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->unshift()";
-	
-	return CORE::unshift(@{ $self->{params}->{$param} } => $value);
-}
-
-sub pop {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->pop()";
-	
-	return CORE::pop(@{ $self->{params}->{$param} });
-}
-
-sub push {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->push()";
-	my $value = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->push()";
-	
-	return CORE::push(@{ $self->{params}->{$param} } => $value);
-}
-
-sub delete {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->delete()";
-	
-	return CORE::delete($self->{params}->{$param});
-}
-
-sub undef {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->undef()";
-	
-	return CORE::undef($self->{params}->{$param});
-}
-
-sub length {
-	my $self = CORE::shift;
-	my $param = CORE::shift || croak "Not enough arguments for " . CORE::ref($self) . "->length()";
-	
-	return CORE::length($self->{params}->{$param});
+	my $label = shift;
+	return (ref($self->{params}->{$label}) and UNIVERSAL::isa($self->{params}->{$label}, __PACKAGE__));
 }
 
 sub param {
-	my $self = CORE::shift;
+	my $self = shift;
 	
 	unless (@_) {
-		return grep { !$self->is_child($_) } CORE::keys(%{ $self->{params} });
+		return grep { !$self->is_node($_) } keys(%{ $self->{params} });
 	}
 	
-	my $first = CORE::shift;
+	my $first = shift;
 	
 	if (@_) {
-		croak "Odd number of argumentes for " . CORE::ref($self) . "->param()" unless ((@_ % 2) == 1);
+		croak "Odd number of argumentes for " . ref($self) . "->param()" unless ((@_ % 2) == 1);
 		
 		my %hash = ($first,@_);
 		
-		for my $key (CORE::keys %hash) {
-			my $ref = ( CORE::ref $hash{$key} );
+		for my $key (keys %hash) {
+			my $ref = ( ref $hash{$key} );
 			
 			if ($ref eq 'HASH') {
 				%{ $self->{params}->{$key} } = %{ $hash{$key} };
@@ -414,11 +132,11 @@ sub param {
 		}
 	}
 	else {
-		if ($self->is_child($first)) {
+		if ($self->is_node($first)) {
 			return undef;
 		}
 		
-		my $type = ( CORE::ref $self->{params}->{$first} );
+		my $type = ( ref $self->{params}->{$first} );
 		
 		if ($type eq 'HASH') {
 			return \%{ $self->{params}->{$first} };
@@ -435,13 +153,58 @@ sub param {
 	}
 }
 
-sub as_hashref {
-	my $self = CORE::shift;
-	return $self->{params};
+sub defined {
+	my $self = shift;
+	
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->defined()";
+	}
+	
+	my $label = shift;
+	return CORE::defined($self->{params}->{$label});
+}
+
+sub exists {
+	my $self = shift;
+	
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->exists()";
+	}
+	
+	my $label = shift;
+	return CORE::exists($self->{params}->{$label});
+}
+
+sub delete {
+	my $self = shift;
+	
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->delete()";
+	}
+	
+	my $label = shift;
+	return CORE::delete($self->{params}->{$label});
+}
+
+sub undef {
+	my $self = shift;
+	
+	unless (@_) {
+		croak "Not enough arguments for " . ref($self) . "->undef()";
+	}
+	
+	my $label = shift;
+	return CORE::undef($self->{params}->{$label});
+}
+
+sub autoload {
+	my $self = shift;
+	$self->{autoload} = shift if @_;
+	$self->{autoload};
 }
 
 sub AUTOLOAD {
-	my $self = CORE::shift;
+	my $self = shift;
 	
 	return if $AUTOLOAD =~ /::DESTROY$/;
 	
@@ -457,12 +220,12 @@ sub AUTOLOAD {
 				return $self->param($name => @_);
 			}
 			else {
-				carp "Too many arguments for " . CORE::ref($self) . "->get_$name\()" if @_;
+				carp "Too many arguments for " . ref($self) . "->get_$name\()" if @_;
 				return $self->param($name);
 			}
 		}
 		else {
-			if ($self->is_child($method)) {
+			if ($self->is_node($method)) {
 				if (@_) {
 					undef $self->{params}->{$method};
 					return $self->param($method => @_);
@@ -477,7 +240,7 @@ sub AUTOLOAD {
 		}
 	}
 	else {
-		croak(CORE::ref($self) . "->$method\() : this method is not implimented");
+		croak(ref($self) . "->$method\() : this method is not implimented");
 	}
 	
 	return;
@@ -508,36 +271,6 @@ Object::AutoAccessor - Accessor class by using AUTOLOAD
   $obj->get_foo();
   $obj->param('foo');
   
-  # set/get array
-  $obj->array([qw(foo bar)]);
-  $obj->push(array => 'baz');
-  my $baz = $obj->pop('array');
-  my $foobar = $obj->join(',', 'array'); # got 'foo,bar'
-  
-  # set/get hash
-  $obj->hash(+{ foo => 'fooval', bar => 'barval' });
-  my $hashref = $obj->hash;
-  my @keys = $obj->keys('hash');
-  my @values = $obj->values('hash');
-  my ($key, $val) = $obj->each('hash');
-  
-  # set/get coderef
-  $obj->code(sub { print "CODEREF\n" });
-  my $code = $obj->code;
-  $code->();
-  
-  # set/get globref
-  $obj->glob(\*STDOUT);
-  my $glob = $obj->glob;
-  print $glob "Hello\n";
-  
-  # is_hashref/arrayref/coderef/globref/scalar
-  $obj->is_hashref('hash');
-  $obj->is_arrayref('array');
-  $obj->is_coderef('code');
-  $obj->is_globref('glob');
-  $obj->is_scalar('foo');
-  
   # $obj->param() is compatible with HTML::Template->param()
   my @keywords = $obj->param();
   my $val = $obj->param('hash');
@@ -546,9 +279,7 @@ Object::AutoAccessor - Accessor class by using AUTOLOAD
 =head1 DESCRIPTION
 
 Object::AutoAccessor is a Accessor class to get/set values by
-AUTOLOADed method automatically, and also can use various methods of
-the same name as built-in functions such as push() , pop() , each() ,
-join() , length() , sprintf() and so on.
+AUTOLOADed method automatically.
 Moreover, param() is compatible with C<HTML::Template> module,
 so you can use Object::AutoAccessor object for C<HTML::Template>'s
 C<associate> option.
@@ -562,40 +293,21 @@ C<associate> option.
 Create a new Object::AutoAccessor object. Then you can use several options to
 control object's behavior.
 
-=over 4
+=item new_node ( NAME, [ OPTIONS ] )
 
-=item * autoload
+Create a new Object::AutoAccessor object as child instance by renew() .
 
-If set to 0, the object cannot use the AUTOLOADed-accessor-method such as
-foo() , set_foo() and get_foo() but param() .
-Defaults to 1.
+=item node ( NAME, [ NAME, ... ] )
 
-=item * bindstyle
+An accessor method for child instance of Object::AutoAccessor object.
 
-If set to 'sql', behavior of bind() method changes into SQL-style-quoting.
-Defaults to 'normal' or undef.
+=item has_node ( NAME )
 
-=back
+If object has child instance then it return TRUE.
 
 =item renew ( [ OPTIONS ] )
 
 Create a new Object::AutoAccessor object to remaining current options.
-
-=item new_child ( NAME, [ OPTIONS ] )
-
-Create a new Object::AutoAccessor object as child instance by renew() .
-
-=item child ( NAME, [ NAME, ... ] )
-
-An accessor method for child instance of Object::AutoAccessor object.
-
-=item children ( NAME, [ NAME, ... ] )
-
-an alias for child() .
-
-=item has_child ( NAME )
-
-If object has child instance then it return TRUE.
 
 =item KEY ( [ VALUE ] )
 
@@ -636,39 +348,14 @@ This is the method to switch behavior of the AUTOLOADed-accessor-method.
 If set to 0, the object cannot use the AUTOLOADed-accessor-method such as
 foo() , set_foo() and get_foo() but param() .
 
-  $obj->new_child('foo')->param(bar => 'baz');
+  $obj->new_node('foo')->param(bar => 'baz');
   
   $obj->autoload(1);
   $baz = $obj->foo->bar; # OK
   
   $obj->autoload(0);
-  $baz = $obj->child('foo')->param('bar'); # OK
-  $baz = $obj->foo->bar;                   # NG
-
-=item bind ( KEY, BIND )
-
-This method provides a simple replacing mechanism that changes I<placeholder>
-to bindings just looks like execute() method of DBI.
-
-  $obj->sentence(q{What is the ? ? in ?\?});
-  
-  # $result is "What is the highest mountain in Japan?"
-  $result = $obj->bind(sentence => qw(highest mountain Japan));
-
-=item bindstyle ( STYLE )
-
-If you want SQL-style-quoting, use bindstyle() and set value 'sql'.
-
-  @binds = ('bar' "It's OK" '-0.123');
-  $obj->bindstyle('sql');
-  $obj->statement(q{SELECT * FROM foo WHERE BAR = ? AND BAZ = ? AND DECIMAL = ?});
-  
-  # $result is "SELECT * FROM foo WHERE BAR = 'bar' AND BAZ = 'It''s OK' AND DECIMAL = -0.123"
-  $result = $obj->bind(statement => @binds);
-
-=item as_hashref ()
-
-As shown in name. :)
+  $baz = $obj->node('foo')->param('bar'); # OK
+  $baz = $obj->foo->bar;                  # NG
 
 =back
 

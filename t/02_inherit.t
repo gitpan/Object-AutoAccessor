@@ -1,5 +1,5 @@
 use strict;
-use Test::More tests => 8;
+use Test::More tests => 7;
 
 use lib 't/lib';
 use Foo;
@@ -7,8 +7,6 @@ use Foo;
 my $foo = Foo->new;
 
 BEGIN { use_ok('Foo'); }
-
-can_ok($foo, qw(param as_hashref));
 
 ok($foo->isa('Object::AutoAccessor'));
 
@@ -26,8 +24,8 @@ is($foo->test, 'def456');
 
 $foo->test(Object::AutoAccessor->new);
 
-ok($foo->is_child('test'));
+ok($foo->is_node('test'));
 
 $foo->test(Foo->new);
 
-ok($foo->is_child('test'));
+ok($foo->is_node('test'));
