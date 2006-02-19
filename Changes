@@ -1,5 +1,8 @@
 Revision history for Perl extension Object::AutoAccessor.
 
+0.06  Sun Feb 20 06:59:20 2006 JST
+	- added build() and as_hashref()
+
 0.05  Sun Feb 12 03:26:58 2006 JST
 	- rename new_child(), child(), has_child() and is_child()
 	      to new_node(),  node(),  has_node()  and is_node()

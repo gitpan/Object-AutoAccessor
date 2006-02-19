@@ -6,7 +6,7 @@ use Carp;		# require 5.004
 
 use vars qw($VERSION $AUTOLOAD);
 
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 sub new {
 	my $obj = shift;
@@ -197,6 +197,65 @@ sub undef {
 	return CORE::undef($self->{params}->{$label});
 }
 
+sub build {
+	my $obj = shift;
+	my $class = ref($obj) || $obj;
+	
+	unless (@_) {
+		croak "Not enough arguments for " . $class . "->build()";
+	}
+	
+	my $hashref = shift;
+	
+	unless (UNIVERSAL::isa($hashref, 'HASH')) {
+		croak $class . "->build(): Cannot build: argument is not a HASH reference";
+	}
+	
+	my $self = $class->new(@_);
+	
+	$self->_build($hashref);
+	
+	$self;
+}
+
+sub _build {
+	my $self = shift;
+	my $struct = shift;
+	
+	for my $key (keys %$struct) {
+		if (UNIVERSAL::isa($struct->{$key}, 'HASH')) {
+			$self->new_node($key)->_build($struct->{$key});
+		}
+		else {
+			$self->param( $key => $struct->{$key} );
+		}
+	}
+}
+
+sub as_hashref {
+	my $self = shift;
+	
+	my $hashref = {};
+	
+	$self->_as_hashref($hashref);
+}
+
+sub _as_hashref {
+	my $self = shift;
+	my $hashref = shift;
+	
+	for my $key (keys %{ $self->{params} }) {
+		if (UNIVERSAL::isa($self->{params}->{$key}, __PACKAGE__)) {
+			$hashref->{$key} = $self->node($key)->_as_hashref($hashref->{$key});
+		}
+		else {
+			$hashref->{$key} = $self->param($key);
+		}
+	}
+	
+	$hashref;
+}
+
 sub autoload {
 	my $self = shift;
 	$self->{autoload} = shift if @_;
@@ -259,7 +318,26 @@ Object::AutoAccessor - Accessor class by using AUTOLOAD
 
   use Object::AutoAccessor;
   
-  my $obj = Object::AutoAccessor->new();
+  my $struct = {
+      foo => {
+          bar => {
+              baz => 'BUILD OK',
+          },
+      },
+  };
+  
+  # Now let's easily accomplish it.
+  my $obj = Object::AutoAccessor->build($struct);
+  
+  print $obj->foo->bar->baz; # prints 'BUILD OK'
+  
+  # OK, now reverse it!
+  $obj->foo->bar->baz('TO HASHREF');
+  my $hashref = $obj->as_hashref;
+  print $hashref->{foo}->{bar}->{baz}; # prints 'TO HASHREF';
+  
+  # Of course, new() can be used.
+  $obj = Object::AutoAccessor->new();
   
   # setter methods
   $obj->foo('bar');
@@ -275,6 +353,8 @@ Object::AutoAccessor - Accessor class by using AUTOLOAD
   my @keywords = $obj->param();
   my $val = $obj->param('hash');
   $obj->param(key => 'val');
+  
+  my $tmpl = HTML::Template->new(..., associate => [$obj], ...);
 
 =head1 DESCRIPTION
 
@@ -292,6 +372,15 @@ C<associate> option.
 
 Create a new Object::AutoAccessor object. Then you can use several options to
 control object's behavior.
+
+=item build ( HASHREF, [ OPTIONS ] )
+
+Create a new object and accessors easily from given hashref structure.
+Then you can use several options to control object's behavior.
+
+=item as_hashref ( )
+
+Reconstruct and returns hashref from Object::AutoAccessor object.
 
 =item new_node ( NAME, [ OPTIONS ] )
 

@@ -4,7 +4,26 @@ NAME
 SYNOPSIS
       use Object::AutoAccessor;
   
-      my $obj = Object::AutoAccessor->new();
+      my $struct = {
+          foo => {
+              bar => {
+                  baz => 'BUILD OK',
+              },
+          },
+      };
+  
+      # Now let's easily accomplish it.
+      my $obj = Object::AutoAccessor->build($struct);
+  
+      print $obj->foo->bar->baz; # prints 'BUILD OK'
+  
+      # OK, now reverse it!
+      $obj->foo->bar->baz('TO HASHREF');
+      my $hashref = $obj->as_hashref;
+      print $hashref->{foo}->{bar}->{baz}; # prints 'TO HASHREF';
+  
+      # Of course, new() can be used.
+      $obj = Object::AutoAccessor->new();
   
       # setter methods
       $obj->foo('bar');
@@ -16,46 +35,16 @@ SYNOPSIS
       $obj->get_foo();
       $obj->param('foo');
   
-      # set/get array
-      $obj->array([qw(foo bar)]);
-      $obj->push(array => 'baz');
-      my $baz = $obj->pop('array');
-      my $foobar = $obj->join(',', 'array'); # got 'foo,bar'
-  
-      # set/get hash
-      $obj->hash(+{ foo => 'fooval', bar => 'barval' });
-      my $hashref = $obj->hash;
-      my @keys = $obj->keys('hash');
-      my @values = $obj->values('hash');
-      my ($key, $val) = $obj->each('hash');
-  
-      # set/get coderef
-      $obj->code(sub { print "CODEREF\n" });
-      my $code = $obj->code;
-      $code->();
-  
-      # set/get globref
-      $obj->glob(\*STDOUT);
-      my $glob = $obj->glob;
-      print $glob "Hello\n";
-  
-      # is_hashref/arrayref/coderef/globref/scalar
-      $obj->is_hashref('hash');
-      $obj->is_arrayref('array');
-      $obj->is_coderef('code');
-      $obj->is_globref('glob');
-      $obj->is_scalar('foo');
-  
       # $obj->param() is compatible with HTML::Template->param()
       my @keywords = $obj->param();
       my $val = $obj->param('hash');
       $obj->param(key => 'val');
+  
+      my $tmpl = HTML::Template->new(..., associate => [$obj], ...);
 
 DESCRIPTION
     Object::AutoAccessor is a Accessor class to get/set values by AUTOLOADed
-    method automatically, and also can use various methods of the same name
-    as built-in functions such as push() , pop() , each() , join() ,
-    length() , sprintf() and so on. Moreover, param() is compatible with
+    method automatically. Moreover, param() is compatible with
     "HTML::Template" module, so you can use Object::AutoAccessor object for
     "HTML::Template"'s "associate" option.
 
@@ -64,32 +53,28 @@ METHODS
         Create a new Object::AutoAccessor object. Then you can use several
         options to control object's behavior.
 
-        * autoload
-            If set to 0, the object cannot use the
-            AUTOLOADed-accessor-method such as foo() , set_foo() and
-            get_foo() but param() . Defaults to 1.
+    build ( HASHREF, [ OPTIONS ] )
+        Create a new object and accessors easily from given hashref
+        structure. Then you can use several options to control object's
+        behavior.
 
-        * bindstyle
-            If set to 'sql', behavior of bind() method changes into
-            SQL-style-quoting. Defaults to 'normal' or undef.
+    as_hashref ( )
+        Reconstruct and returns hashref from Object::AutoAccessor object.
+
+    new_node ( NAME, [ OPTIONS ] )
+        Create a new Object::AutoAccessor object as child instance by
+        renew() .
+
+    node ( NAME, [ NAME, ... ] )
+        An accessor method for child instance of Object::AutoAccessor
+        object.
+
+    has_node ( NAME )
+        If object has child instance then it return TRUE.
 
     renew ( [ OPTIONS ] )
         Create a new Object::AutoAccessor object to remaining current
         options.
-
-    new_child ( NAME, [ OPTIONS ] )
-        Create a new Object::AutoAccessor object as child instance by
-        renew() .
-
-    child ( NAME, [ NAME, ... ] )
-        An accessor method for child instance of Object::AutoAccessor
-        object.
-
-    children ( NAME, [ NAME, ... ] )
-        an alias for child() .
-
-    has_child ( NAME )
-        If object has child instance then it return TRUE.
 
     KEY ( [ VALUE ] )
         This method provides an accessor that methodname is same as keyname
@@ -129,36 +114,14 @@ METHODS
         AUTOLOADed-accessor-method such as foo() , set_foo() and get_foo()
         but param() .
 
-          $obj->new_child('foo')->param(bar => 'baz');
+          $obj->new_node('foo')->param(bar => 'baz');
   
           $obj->autoload(1);
           $baz = $obj->foo->bar; # OK
   
           $obj->autoload(0);
-          $baz = $obj->child('foo')->param('bar'); # OK
-          $baz = $obj->foo->bar;                   # NG
-
-    bind ( KEY, BIND )
-        This method provides a simple replacing mechanism that changes
-        *placeholder* to bindings just looks like execute() method of DBI.
-
-          $obj->sentence(q{What is the ? ? in ?\?});
-  
-          # $result is "What is the highest mountain in Japan?"
-          $result = $obj->bind(sentence => qw(highest mountain Japan));
-
-    bindstyle ( STYLE )
-        If you want SQL-style-quoting, use bindstyle() and set value 'sql'.
-
-          @binds = ('bar' "It's OK" '-0.123');
-          $obj->bindstyle('sql');
-          $obj->statement(q{SELECT * FROM foo WHERE BAR = ? AND BAZ = ? AND DECIMAL = ?});
-  
-          # $result is "SELECT * FROM foo WHERE BAR = 'bar' AND BAZ = 'It''s OK' AND DECIMAL = -0.123"
-          $result = $obj->bind(statement => @binds);
-
-    as_hashref ()
-        As shown in name. :)
+          $baz = $obj->node('foo')->param('bar'); # OK
+          $baz = $obj->foo->bar;                  # NG
 
 AUTHOR
     Copyright 2005-2006 Michiya Honda, <pia@cpan.org> All rights reserved.

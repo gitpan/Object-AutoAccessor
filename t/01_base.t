@@ -1,5 +1,6 @@
 use strict;
-use Test::More qw(no_plan);
+#use Test::More qw(no_plan);
+use Test::More tests => 38;
 use Object::AutoAccessor;
 
 
@@ -77,7 +78,25 @@ use Object::AutoAccessor;
 }
 
 
-#5 new with 'noautoload'
+#5 defined, exists, delete, undef
+{
+	my $obj = Object::AutoAccessor->new();
+	
+	$obj->foo('bar');
+	ok ( $obj->defined('foo'), 'defined 1' );
+	ok ( $obj->exists('foo'), 'exists 1' );
+	
+	$obj->undef('foo');
+	ok ( !$obj->defined('foo'), 'defined 2' );
+	ok ( $obj->exists('foo'), 'exists 2' );
+	
+	$obj->foo('bar');
+	is ( $obj->delete('foo'), 'bar', 'delete' );
+	ok ( !$obj->defined('foo'), 'defined 3' );
+	ok ( !$obj->exists('foo'), 'exists 3' );
+}
+
+#6 new with 'noautoload'
 {
 	my $obj = Object::AutoAccessor->new(autoload => 0);
 	
@@ -94,9 +113,9 @@ use Object::AutoAccessor;
 }
 
 
-#6 renew with 'noautoload'
+#7 renew with 'noautoload'
 {
-	my $obj = Object::AutoAccessor->renew(autoload => 0);
+	my $obj = Object::AutoAccessor->new(autoload => 0);
 	
 	eval { $obj->retest('???'); };
 	ok(!$obj->defined('retest'));
@@ -109,6 +128,5 @@ use Object::AutoAccessor;
 	eval { $obj->retest2('???'); };
 	ok(!$obj->defined('retest2'));
 }
-
 
 # END
